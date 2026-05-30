@@ -139,6 +139,50 @@ npm start              # 启动客户端
 
 打包安装包（可选）：`npm run dist`（使用 electron-builder，会把 `bin/qgen` 作为 extraResources 一起打包）。
 
+## Docker 部署
+
+容器化的是 Go 命令行 agent（GUI 客户端不适合容器）。镜像采用多阶段构建，运行时基于 alpine，约定知识库挂载到 `/kb`、输出写到 `/out`。
+
+### 构建镜像
+
+```bash
+docker build -t qgen .
+# 海外网络可指定官方代理：
+# docker build --build-arg GOPROXY=https://proxy.golang.org,direct -t qgen .
+```
+
+### 运行（一次性任务）
+
+```bash
+docker run --rm \
+  -e QGEN_BASE_URL="https://api.openai.com/v1" \
+  -e QGEN_API_KEY="你的-api-key" \
+  -e QGEN_MODEL="gpt-5.5" \
+  -e QGEN_TEMPERATURE="0" \
+  -v /本机/知识库目录:/kb:ro \
+  -v /本机/输出目录:/out \
+  qgen -root /kb -out /out/知识库问题清单.xlsx -c 6
+```
+
+先预览清单（不调用模型，可不带 key）：
+
+```bash
+docker run --rm -v /本机/知识库目录:/kb:ro qgen -dry-run -root /kb
+```
+
+> **访问宿主机本地模型服务**：容器内的 `127.0.0.1` 指向容器自身。若模型服务跑在宿主机（如 `127.0.0.1:8317`），请把 `QGEN_BASE_URL` 改为 `http://host.docker.internal:8317/v1`，并在 `docker run` 加 `--add-host=host.docker.internal:host-gateway`（Linux）；macOS/Windows 的 Docker Desktop 默认已支持 `host.docker.internal`。
+
+### docker compose
+
+仓库提供了 `docker-compose.yml`。用环境变量或 `.env` 注入配置后：
+
+```bash
+export QGEN_API_KEY="你的-api-key"
+export KB_DIR=/本机/知识库目录
+export OUT_DIR=/本机/输出目录
+docker compose run --rm qgen
+```
+
 ## 测试
 
 ```bash

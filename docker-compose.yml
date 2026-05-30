@@ -1,0 +1,21 @@
+# 便捷部署：docker compose run --rm qgen
+# 先按需修改 environment 与 volumes，或用 .env 注入密钥。
+services:
+  qgen:
+    build:
+      context: .
+      # 海外构建可改成： GOPROXY: https://proxy.golang.org,direct
+      args:
+        GOPROXY: https://goproxy.cn,direct
+    image: qgen:latest
+    environment:
+      QGEN_BASE_URL: "${QGEN_BASE_URL:-https://api.openai.com/v1}"
+      QGEN_API_KEY: "${QGEN_API_KEY:?需在环境或 .env 中设置 QGEN_API_KEY}"
+      QGEN_MODEL: "${QGEN_MODEL:-gpt-5.5}"
+      QGEN_TEMPERATURE: "${QGEN_TEMPERATURE:-0}"
+    volumes:
+      - "${KB_DIR:-./kb}:/kb:ro"     # 知识库目录（只读）
+      - "${OUT_DIR:-./out}:/out"      # 输出目录
+    # 如需访问宿主机本地模型服务（如 127.0.0.1:8317），取消下一行注释并把 BASE_URL 指向 host.docker.internal
+    # extra_hosts: ["host.docker.internal:host-gateway"]
+    command: ["-root", "/kb", "-out", "/out/知识库问题清单.xlsx", "-c", "6"]

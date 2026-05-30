@@ -1,0 +1,18 @@
+# 版本控制与文档
+.git
+.gitignore
+.idea
+.vscode
+
+# 桌面客户端（与 Go 构建无关，且 node_modules 体积大）
+desktop/
+
+# 生成产物与本地配置
+*.xlsx
+config.yaml
+/qgen
+/bin_qgen
+*.exe
+
+# 系统文件
+.DS_Store
