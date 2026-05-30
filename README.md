@@ -122,6 +122,23 @@ gen:
 - **输入**：默认扫描 `.md / .txt / .markdown` 文档（docx/pdf 请先转换为 md）。文档标题优先取正文首个一/二级标题，否则取文件名。
 - **输出**：`问题清单` 工作表，列为 `轮次 | 场景 | 问题 | 上传文档 | 来源文档 | 答案位置提示`，与 `文档提问20条-测试模板.xlsx` 对齐；`场景`列体现意图类别。
 
+## 桌面客户端（Electron）
+
+`desktop/` 下提供了一个 Electron 图形客户端：前端负责配置与可视化进度，实际生成仍由 Go 的 `qgen` 二进制完成（通过 `-json` 进度协议通信）。
+
+功能：选择知识库目录、配置模型（Base URL / API Key / 模型 / temperature）、设置三类意图的每篇条数与并发、预览清单、实时进度与日志、完成后一键打开文件或定位文件夹。配置（含 API Key）只保存在本机 `userData/settings.json`，不会进入仓库。
+
+```bash
+cd desktop
+npm install            # 安装 Electron
+npm run build:agent    # 编译 Go 二进制到 desktop/bin/qgen（需本机有 Go）
+npm start              # 启动客户端
+```
+
+> 若启动后报 `Cannot read properties of undefined (reading 'whenReady')`，说明当前环境设置了 `ELECTRON_RUN_AS_NODE`，用 `env -u ELECTRON_RUN_AS_NODE npm start` 启动即可。
+
+打包安装包（可选）：`npm run dist`（使用 electron-builder，会把 `bin/qgen` 作为 extraResources 一起打包）。
+
 ## 测试
 
 ```bash

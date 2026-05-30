@@ -3,9 +3,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"sort"
 	"strings"
@@ -25,49 +25,57 @@ func main() {
 		rootsFlag   stringList
 		outPath     string
 		perDoc      int
+		guidanceN   int
+		draftN      int
 		concurrency int
 		maxDocs     int
 		dryRun      bool
+		jsonMode    bool
 	)
 	flag.StringVar(&configPath, "config", "", "配置文件路径(yaml)，可选")
 	flag.Var(&rootsFlag, "root", "知识库根目录，可多次指定（覆盖配置）")
 	flag.StringVar(&outPath, "out", "", "输出 xlsx 路径（覆盖配置）")
 	flag.IntVar(&perDoc, "n", 0, "覆盖 information_interpretation 意图的条数（其余意图按配置）")
+	flag.IntVar(&guidanceN, "guidance", -1, "覆盖 guidance 意图的条数")
+	flag.IntVar(&draftN, "draft", -1, "覆盖 draft_from_doc 意图的条数")
 	flag.IntVar(&concurrency, "c", 0, "并发文档数（覆盖配置）")
 	flag.IntVar(&maxDocs, "max", -1, "最多处理的文档数，0/负数为不限制（覆盖配置）")
 	flag.BoolVar(&dryRun, "dry-run", false, "仅打印扫描到的知识库清单，不调用模型")
+	flag.BoolVar(&jsonMode, "json", false, "以 JSON 行输出进度事件（供客户端解析）")
 	flag.Parse()
 
-	cfg, err := loadConfig(configPath, rootsFlag, outPath, perDoc, concurrency, maxDocs, dryRun)
+	em := &emitter{json: jsonMode}
+
+	cfg, err := loadConfig(configPath, rootsFlag, outPath, perDoc, guidanceN, draftN, concurrency, maxDocs, dryRun)
 	if err != nil {
-		log.Fatalf("配置错误: %v", err)
+		em.fatal("配置错误: " + err.Error())
 	}
 
 	docs, err := kb.Scan(&cfg.KB)
 	if err != nil {
-		log.Fatalf("扫描知识库失败: %v", err)
+		em.fatal("扫描知识库失败: " + err.Error())
 	}
 	if len(docs) == 0 {
-		log.Fatalf("未在 %v 中扫描到任何文档（后缀: %v）", cfg.KB.Roots, cfg.KB.Extensions)
+		em.fatal(fmt.Sprintf("未在 %v 中扫描到任何文档（后缀: %v）", cfg.KB.Roots, cfg.KB.Extensions))
 	}
 	if cfg.Gen.MaxDocs > 0 && len(docs) > cfg.Gen.MaxDocs {
 		docs = docs[:cfg.Gen.MaxDocs]
 	}
 
-	fmt.Printf("📚 知识库清单：共扫描到 %d 篇文档\n", len(docs))
-	for i, d := range docs {
-		fmt.Printf("  %3d. %s  (%s)\n", i+1, d.Title, d.RelPath)
-	}
+	em.scan(docs)
 
 	if dryRun {
-		fmt.Println("\n[dry-run] 仅展示清单，未调用模型。")
+		em.event(event{Type: "done", DryRun: true, Docs: len(docs)})
+		if !em.json {
+			fmt.Println("\n[dry-run] 仅展示清单，未调用模型。")
+		}
 		return
 	}
 
 	ctx := context.Background()
 	generator, err := gen.New(ctx, cfg)
 	if err != nil {
-		log.Fatalf("初始化生成器失败: %v", err)
+		em.fatal("初始化生成器失败: " + err.Error())
 	}
 
 	var mix []string
@@ -76,10 +84,9 @@ func main() {
 			mix = append(mix, fmt.Sprintf("%s×%d", it.Intent, it.Count))
 		}
 	}
-	fmt.Printf("\n🤖 开始生成问题（模型: %s，每篇 %d 条 [%s]，并发 %d）...\n",
-		cfg.Model.Model, cfg.Gen.TotalPerDoc(), strings.Join(mix, " + "), cfg.Gen.Concurrency)
+	em.start(cfg.Model.Model, cfg.Gen.TotalPerDoc(), cfg.Gen.Concurrency, strings.Join(mix, " + "))
 
-	results := runPool(ctx, generator, cfg, docs)
+	results := runPool(ctx, generator, cfg, docs, em)
 
 	// 按文档顺序汇总并编号。
 	var questions []gen.Question
@@ -93,14 +100,14 @@ func main() {
 	}
 
 	if len(questions) == 0 {
-		log.Fatalf("未生成任何问题，请检查模型配置或网络。")
+		em.fatal("未生成任何问题，请检查模型配置或网络。")
 	}
 
 	if err := export.WriteXLSX(cfg.Output.Path, questions); err != nil {
-		log.Fatalf("导出失败: %v", err)
+		em.fatal("导出失败: " + err.Error())
 	}
 
-	fmt.Printf("\n✅ 完成：共生成 %d 条问题，已写入 %s\n", len(questions), cfg.Output.Path)
+	em.done(len(questions), cfg.Output.Path)
 }
 
 // docResult 保存单篇文档的生成结果，idx 用于恢复文档顺序。
@@ -109,7 +116,7 @@ type docResult struct {
 	questions []gen.Question
 }
 
-func runPool(ctx context.Context, generator *gen.Generator, cfg *config.Config, docs []*kb.Document) []docResult {
+func runPool(ctx context.Context, generator *gen.Generator, cfg *config.Config, docs []*kb.Document, em *emitter) []docResult {
 	type job struct {
 		idx int
 		doc *kb.Document
@@ -125,9 +132,9 @@ func runPool(ctx context.Context, generator *gen.Generator, cfg *config.Config, 
 		go func() {
 			defer wg.Done()
 			for j := range jobs {
-				qs := processDoc(ctx, generator, cfg, j.doc)
+				qs := processDoc(ctx, generator, cfg, j.doc, em)
 				n := atomic.AddInt64(&done, 1)
-				fmt.Printf("  [%d/%d] %s -> %d 条\n", n, len(docs), truncateTitle(j.doc.Title), len(qs))
+				em.progress(int(n), len(docs), j.doc.Title, len(qs))
 				resultsCh <- docResult{idx: j.idx, questions: qs}
 			}
 		}()
@@ -153,9 +160,9 @@ func runPool(ctx context.Context, generator *gen.Generator, cfg *config.Config, 
 	return results
 }
 
-func processDoc(ctx context.Context, generator *gen.Generator, cfg *config.Config, doc *kb.Document) []gen.Question {
+func processDoc(ctx context.Context, generator *gen.Generator, cfg *config.Config, doc *kb.Document, em *emitter) []gen.Question {
 	if err := kb.Load(doc, cfg.Model.MaxDocChars); err != nil {
-		fmt.Fprintf(os.Stderr, "  ⚠️ 读取失败 %s: %v\n", doc.RelPath, err)
+		em.warn(fmt.Sprintf("读取失败 %s: %v", doc.RelPath, err))
 		return nil
 	}
 
@@ -169,11 +176,11 @@ func processDoc(ctx context.Context, generator *gen.Generator, cfg *config.Confi
 		lastErr = err
 		time.Sleep(time.Duration(attempt+1) * time.Second)
 	}
-	fmt.Fprintf(os.Stderr, "  ⚠️ 生成失败 %s: %v\n", doc.RelPath, lastErr)
+	em.warn(fmt.Sprintf("生成失败 %s: %v", doc.RelPath, lastErr))
 	return nil
 }
 
-func loadConfig(path string, roots stringList, out string, perDoc, concurrency, maxDocs int, dryRun bool) (*config.Config, error) {
+func loadConfig(path string, roots stringList, out string, perDoc, guidanceN, draftN, concurrency, maxDocs int, dryRun bool) (*config.Config, error) {
 	// dry-run 不需要模型 Key，使用 Default 跳过校验。
 	var cfg *config.Config
 	if dryRun {
@@ -200,6 +207,12 @@ func loadConfig(path string, roots stringList, out string, perDoc, concurrency, 
 	if perDoc > 0 {
 		setIntentCount(cfg, "information_interpretation", "信息解读", perDoc)
 	}
+	if guidanceN >= 0 {
+		setIntentCount(cfg, "guidance", "文稿撰写", guidanceN)
+	}
+	if draftN >= 0 {
+		setIntentCount(cfg, "draft_from_doc", "以稿写稿", draftN)
+	}
 	if concurrency > 0 {
 		cfg.Gen.Concurrency = concurrency
 	}
@@ -223,14 +236,6 @@ func setIntentCount(cfg *config.Config, intent, scene string, count int) {
 	cfg.Gen.Intents = append(cfg.Gen.Intents, config.IntentSpec{Intent: intent, Scene: scene, Count: count})
 }
 
-func truncateTitle(s string) string {
-	r := []rune(s)
-	if len(r) > 30 {
-		return string(r[:30]) + "…"
-	}
-	return s
-}
-
 // stringList 支持 -root 多次指定。
 type stringList []string
 
@@ -238,4 +243,107 @@ func (s *stringList) String() string { return fmt.Sprintf("%v", []string(*s)) }
 func (s *stringList) Set(v string) error {
 	*s = append(*s, v)
 	return nil
+}
+
+// ---- 进度事件输出（人类可读 / JSON 行） ----
+
+type docMeta struct {
+	Title string `json:"title"`
+	Rel   string `json:"rel"`
+}
+
+type event struct {
+	Type        string    `json:"type"`
+	Total       int       `json:"total,omitempty"`
+	Docs        int       `json:"docs,omitempty"`
+	DocList     []docMeta `json:"doc_list,omitempty"`
+	Done        int       `json:"done,omitempty"`
+	Title       string    `json:"title,omitempty"`
+	Count       int       `json:"count,omitempty"`
+	Model       string    `json:"model,omitempty"`
+	TotalPerDoc int       `json:"total_per_doc,omitempty"`
+	Concurrency int       `json:"concurrency,omitempty"`
+	Mix         string    `json:"mix,omitempty"`
+	Questions   int       `json:"questions,omitempty"`
+	Output      string    `json:"output,omitempty"`
+	Message     string    `json:"message,omitempty"`
+	DryRun      bool      `json:"dry_run,omitempty"`
+}
+
+type emitter struct {
+	json bool
+	mu   sync.Mutex
+}
+
+func (e *emitter) event(ev event) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	b, _ := json.Marshal(ev)
+	fmt.Println(string(b))
+}
+
+func (e *emitter) scan(docs []*kb.Document) {
+	if e.json {
+		list := make([]docMeta, len(docs))
+		for i, d := range docs {
+			list[i] = docMeta{Title: d.Title, Rel: d.RelPath}
+		}
+		e.event(event{Type: "scan", Total: len(docs), DocList: list})
+		return
+	}
+	fmt.Printf("📚 知识库清单：共扫描到 %d 篇文档\n", len(docs))
+	for i, d := range docs {
+		fmt.Printf("  %3d. %s  (%s)\n", i+1, d.Title, d.RelPath)
+	}
+}
+
+func (e *emitter) start(model string, perDoc, concurrency int, mix string) {
+	if e.json {
+		e.event(event{Type: "start", Model: model, TotalPerDoc: perDoc, Concurrency: concurrency, Mix: mix})
+		return
+	}
+	fmt.Printf("\n🤖 开始生成问题（模型: %s，每篇 %d 条 [%s]，并发 %d）...\n", model, perDoc, mix, concurrency)
+}
+
+func (e *emitter) progress(done, total int, title string, count int) {
+	if e.json {
+		e.event(event{Type: "progress", Done: done, Total: total, Title: title, Count: count})
+		return
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	fmt.Printf("  [%d/%d] %s -> %d 条\n", done, total, truncateTitle(title), count)
+}
+
+func (e *emitter) warn(msg string) {
+	if e.json {
+		e.event(event{Type: "warn", Message: msg})
+		return
+	}
+	fmt.Fprintf(os.Stderr, "  ⚠️ %s\n", msg)
+}
+
+func (e *emitter) done(questions int, output string) {
+	if e.json {
+		e.event(event{Type: "done", Questions: questions, Output: output})
+		return
+	}
+	fmt.Printf("\n✅ 完成：共生成 %d 条问题，已写入 %s\n", questions, output)
+}
+
+func (e *emitter) fatal(msg string) {
+	if e.json {
+		e.event(event{Type: "error", Message: msg})
+	} else {
+		fmt.Fprintln(os.Stderr, "错误: "+msg)
+	}
+	os.Exit(1)
+}
+
+func truncateTitle(s string) string {
+	r := []rune(s)
+	if len(r) > 30 {
+		return string(r[:30]) + "…"
+	}
+	return s
 }

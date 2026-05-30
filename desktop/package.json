@@ -1,0 +1,36 @@
+{
+  "name": "qgen-desktop",
+  "version": "1.0.0",
+  "description": "知识库问题生成器桌面客户端（Electron 前端 + Go 智能体）",
+  "main": "main.js",
+  "author": "",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "build:agent": "go build -C .. -o desktop/bin/qgen ./cmd/qgen",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "com.qgen.desktop",
+    "productName": "知识库问题生成器",
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "bin",
+        "to": "bin"
+      }
+    ],
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.productivity"
+    }
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  }
+}

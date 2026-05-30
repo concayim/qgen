@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+  <title>知识库问题生成器</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">Q</div>
+      <div>
+        <h1>知识库问题生成器</h1>
+        <p class="subtitle">Golang + eino 智能体 · 按政务意图自动出题</p>
+      </div>
+    </div>
+    <span class="badge" id="modelBadge">gpt-5.5</span>
+  </header>
+
+  <main class="layout">
+    <!-- 左侧：配置 -->
+    <section class="panel config">
+      <div class="card">
+        <h2>知识库</h2>
+        <label class="field">
+          <span>知识库目录</span>
+          <div class="row">
+            <input type="text" id="kbRoot" placeholder="选择要扫描的文件夹（含 .md / .txt）" />
+            <button class="btn ghost" id="pickRoot">选择…</button>
+          </div>
+        </label>
+        <label class="field inline">
+          <span>最多处理文档数</span>
+          <input type="number" id="maxDocs" min="0" value="0" />
+          <small>0 = 不限制</small>
+        </label>
+      </div>
+
+      <div class="card">
+        <h2>模型（OpenAI 兼容）</h2>
+        <label class="field">
+          <span>Base URL</span>
+          <input type="text" id="baseUrl" placeholder="http://127.0.0.1:8317/v1" />
+        </label>
+        <label class="field">
+          <span>API Key</span>
+          <div class="row">
+            <input type="password" id="apiKey" placeholder="本地保存，不会上传" />
+            <button class="btn ghost" id="toggleKey" title="显示/隐藏">👁</button>
+          </div>
+        </label>
+        <div class="grid2">
+          <label class="field">
+            <span>模型名</span>
+            <input type="text" id="model" placeholder="gpt-5.5" />
+          </label>
+          <label class="field">
+            <span>Temperature</span>
+            <input type="number" id="temperature" step="0.1" min="0" value="0" />
+            <small>gpt-5.x 设为 0</small>
+          </label>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>意图分布（每篇文档）</h2>
+        <div class="grid3">
+          <label class="field">
+            <span>信息解读</span>
+            <input type="number" id="nInfo" min="0" value="3" />
+          </label>
+          <label class="field">
+            <span>文稿撰写</span>
+            <input type="number" id="nGuidance" min="0" value="1" />
+          </label>
+          <label class="field">
+            <span>以稿写稿</span>
+            <input type="number" id="nDraft" min="0" value="1" />
+          </label>
+        </div>
+        <label class="field inline">
+          <span>并发数</span>
+          <input type="number" id="concurrency" min="1" value="6" />
+        </label>
+      </div>
+
+      <div class="card">
+        <h2>输出</h2>
+        <label class="field">
+          <span>导出 xlsx 路径</span>
+          <div class="row">
+            <input type="text" id="outPath" placeholder="选择保存位置…" />
+            <button class="btn ghost" id="pickOut">选择…</button>
+          </div>
+        </label>
+      </div>
+    </section>
+
+    <!-- 右侧：操作与进度 -->
+    <section class="panel run">
+      <div class="actions">
+        <button class="btn ghost" id="btnPreview">预览清单</button>
+        <button class="btn primary" id="btnGenerate">开始生成</button>
+        <button class="btn danger" id="btnCancel" disabled>停止</button>
+      </div>
+
+      <div class="status-card">
+        <div class="status-line">
+          <span id="statusText">就绪</span>
+          <span id="counter" class="counter"></span>
+        </div>
+        <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+        <div class="result" id="resultBar" hidden>
+          <span id="resultText"></span>
+          <span class="result-actions">
+            <button class="btn ghost sm" id="btnOpen">打开文件</button>
+            <button class="btn ghost sm" id="btnReveal">所在文件夹</button>
+          </span>
+        </div>
+      </div>
+
+      <div class="card grow">
+        <div class="card-head">
+          <h2>运行日志</h2>
+          <button class="btn ghost sm" id="btnClearLog">清空</button>
+        </div>
+        <pre id="log" class="log"></pre>
+      </div>
+    </section>
+  </main>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
