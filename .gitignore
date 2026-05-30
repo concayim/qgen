@@ -1,0 +1,17 @@
+# 编译产物
+/qgen
+/bin_qgen
+*.exe
+
+# 本地配置（可能含密钥）
+config.yaml
+
+# 生成的输出
+*.xlsx
+
+# 其他
+.DS_Store
+
+# IDE
+.idea/
+.vscode/

@@ -1,0 +1,47 @@
+# qgen 配置示例：复制为 config.yaml 后按需修改。
+# 敏感项（api_key）建议用环境变量注入，详见 README。
+
+model:
+  # OpenAI 兼容协议端点。
+  #   - 火山方舟:   https://ark.cn-beijing.volces.com/api/v3
+  #   - 本地 vLLM:  http://127.0.0.1:8000/v1
+  #   - OpenAI:     https://api.openai.com/v1
+  base_url: "https://ark.cn-beijing.volces.com/api/v3"
+  api_key: ""            # 留空则从环境变量 QGEN_API_KEY / ARK_API_KEY / OPENAI_API_KEY 读取
+  model: ""             # 必填：模型名或方舟 endpoint id，如 ep-2024xxxx 或 qwen2.5-72b
+  # temperature <= 0 表示不发送该参数。gpt-5.x 等 beta 模型强制 temperature=1，必须设为 0。
+  temperature: 0.7
+  max_doc_chars: 12000   # 单篇文档送入模型的最大字符数，超出截断
+
+kb:
+  roots:
+    - ".."              # 知识库根目录（相对 qgen 目录）。默认上级即整个知识库
+  extensions:
+    - ".md"
+    - ".txt"
+    - ".markdown"
+  exclude_dirs:
+    - ".git"
+    - "node_modules"
+    - "qgen"
+
+gen:
+  # 按政务意图分类器的意图分桶出题，并为每条问题打金标签（primary_intent / need_retrieval）。
+  # intent 取值：information_interpretation(信息解读) / guidance(写新稿) / draft_from_doc(以稿写稿)
+  # need_retrieval 由意图自动推导：信息解读=true、写稿=true、以稿写稿=false。
+  intents:
+    - intent: "information_interpretation"
+      scene: "信息解读"
+      count: 3
+    - intent: "guidance"
+      scene: "文稿撰写"
+      count: 1
+    - intent: "draft_from_doc"
+      scene: "以稿写稿"
+      count: 1
+  concurrency: 4         # 并发处理的文档数
+  max_docs: 0            # 最多处理文档数，0 表示不限制（先用小值试跑）
+
+output:
+  path: "知识库问题清单.xlsx"
+  upload_doc_label: "无（知识库检索）"
