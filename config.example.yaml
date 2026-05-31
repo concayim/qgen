@@ -26,19 +26,25 @@ kb:
     - "qgen"
 
 gen:
-  # 按政务意图分类器的意图分桶出题，并为每条问题打金标签（primary_intent / need_retrieval）。
-  # intent 取值：information_interpretation(信息解读) / guidance(写新稿) / draft_from_doc(以稿写稿)
-  # need_retrieval 由意图自动推导：信息解读=true、写稿=true、以稿写稿=false。
+  # 按政务场景分桶出题，场景名写入输出 xlsx 的「场景」列。
+  # intent 取值：
+  #   intelligent_qa  智能问答（自然语言事实问答，检索定位）
+  #   draft_from_doc  以稿写稿（给原文片段，改写/压缩/润色）
+  #   doc_extraction  上传文件萃取（从本篇文档直接抽取/列出/归集成清单）
+  #   info_writing    信息撰写（依据文档写新的正式文稿）
   intents:
-    - intent: "information_interpretation"
-      scene: "信息解读"
-      count: 3
-    - intent: "guidance"
-      scene: "文稿撰写"
-      count: 1
+    - intent: "intelligent_qa"
+      scene: "智能问答"
+      count: 4
     - intent: "draft_from_doc"
       scene: "以稿写稿"
-      count: 1
+      count: 2
+    - intent: "doc_extraction"
+      scene: "上传文件萃取"
+      count: 2
+    - intent: "info_writing"
+      scene: "信息撰写"
+      count: 2
   concurrency: 4         # 并发处理的文档数
   max_docs: 0            # 最多处理文档数，0 表示不限制（先用小值试跑）
 

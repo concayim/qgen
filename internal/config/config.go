@@ -41,12 +41,13 @@ type KBConfig struct {
 	ExcludeDirs []string `yaml:"exclude_dirs"`
 }
 
-// IntentSpec 描述某一意图要生成的问题数及其展示用的场景名。
+// IntentSpec 描述某一场景要生成的问题数及其展示用的场景名。
 // Intent 取值与政务意图分类器一致：
 //
-//	information_interpretation 信息解读/事实提问
-//	guidance                   文稿撰写（写新稿）
-//	draft_from_doc             以稿写稿（改写嵌入的原文片段）
+//	intelligent_qa 智能问答（自然语言事实问答，检索定位）
+//	draft_from_doc 以稿写稿（改写嵌入的原文片段）
+//	doc_extraction 上传文件萃取（从本篇文档直接抽取/列出/归集）
+//	info_writing   信息撰写（依据文档写新的正式文稿）
 type IntentSpec struct {
 	Intent string `yaml:"intent"`
 	Scene  string `yaml:"scene"`
@@ -96,9 +97,10 @@ func Default() *Config {
 		},
 		Gen: GenConfig{
 			Intents: []IntentSpec{
-				{Intent: "information_interpretation", Scene: "信息解读", Count: 3},
-				{Intent: "guidance", Scene: "文稿撰写", Count: 1},
-				{Intent: "draft_from_doc", Scene: "以稿写稿", Count: 1},
+				{Intent: "intelligent_qa", Scene: "智能问答", Count: 4},
+				{Intent: "draft_from_doc", Scene: "以稿写稿", Count: 2},
+				{Intent: "doc_extraction", Scene: "上传文件萃取", Count: 2},
+				{Intent: "info_writing", Scene: "信息撰写", Count: 2},
 			},
 			Concurrency: 4,
 			MaxDocs:     0,

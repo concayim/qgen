@@ -24,9 +24,10 @@ func main() {
 		configPath  string
 		rootsFlag   stringList
 		outPath     string
-		perDoc      int
-		guidanceN   int
+		qaN         int
 		draftN      int
+		extractN    int
+		writingN    int
 		concurrency int
 		maxDocs     int
 		dryRun      bool
@@ -35,9 +36,10 @@ func main() {
 	flag.StringVar(&configPath, "config", "", "配置文件路径(yaml)，可选")
 	flag.Var(&rootsFlag, "root", "知识库根目录，可多次指定（覆盖配置）")
 	flag.StringVar(&outPath, "out", "", "输出 xlsx 路径（覆盖配置）")
-	flag.IntVar(&perDoc, "n", 0, "覆盖 information_interpretation 意图的条数（其余意图按配置）")
-	flag.IntVar(&guidanceN, "guidance", -1, "覆盖 guidance 意图的条数")
-	flag.IntVar(&draftN, "draft", -1, "覆盖 draft_from_doc 意图的条数")
+	flag.IntVar(&qaN, "n", -1, "覆盖 intelligent_qa（智能问答）的条数")
+	flag.IntVar(&draftN, "draft", -1, "覆盖 draft_from_doc（以稿写稿）的条数")
+	flag.IntVar(&extractN, "extract", -1, "覆盖 doc_extraction（上传文件萃取）的条数")
+	flag.IntVar(&writingN, "writing", -1, "覆盖 info_writing（信息撰写）的条数")
 	flag.IntVar(&concurrency, "c", 0, "并发文档数（覆盖配置）")
 	flag.IntVar(&maxDocs, "max", -1, "最多处理的文档数，0/负数为不限制（覆盖配置）")
 	flag.BoolVar(&dryRun, "dry-run", false, "仅打印扫描到的知识库清单，不调用模型")
@@ -46,7 +48,7 @@ func main() {
 
 	em := &emitter{json: jsonMode}
 
-	cfg, err := loadConfig(configPath, rootsFlag, outPath, perDoc, guidanceN, draftN, concurrency, maxDocs, dryRun)
+	cfg, err := loadConfig(configPath, rootsFlag, outPath, qaN, draftN, extractN, writingN, concurrency, maxDocs, dryRun)
 	if err != nil {
 		em.fatal("配置错误: " + err.Error())
 	}
@@ -180,7 +182,7 @@ func processDoc(ctx context.Context, generator *gen.Generator, cfg *config.Confi
 	return nil
 }
 
-func loadConfig(path string, roots stringList, out string, perDoc, guidanceN, draftN, concurrency, maxDocs int, dryRun bool) (*config.Config, error) {
+func loadConfig(path string, roots stringList, out string, qaN, draftN, extractN, writingN, concurrency, maxDocs int, dryRun bool) (*config.Config, error) {
 	// dry-run 不需要模型 Key，使用 Default 跳过校验。
 	var cfg *config.Config
 	if dryRun {
@@ -204,14 +206,17 @@ func loadConfig(path string, roots stringList, out string, perDoc, guidanceN, dr
 	if out != "" {
 		cfg.Output.Path = out
 	}
-	if perDoc > 0 {
-		setIntentCount(cfg, "information_interpretation", "信息解读", perDoc)
-	}
-	if guidanceN >= 0 {
-		setIntentCount(cfg, "guidance", "文稿撰写", guidanceN)
+	if qaN >= 0 {
+		setIntentCount(cfg, "intelligent_qa", "智能问答", qaN)
 	}
 	if draftN >= 0 {
 		setIntentCount(cfg, "draft_from_doc", "以稿写稿", draftN)
+	}
+	if extractN >= 0 {
+		setIntentCount(cfg, "doc_extraction", "上传文件萃取", extractN)
+	}
+	if writingN >= 0 {
+		setIntentCount(cfg, "info_writing", "信息撰写", writingN)
 	}
 	if concurrency > 0 {
 		cfg.Gen.Concurrency = concurrency

@@ -11,13 +11,13 @@ func TestParseBuckets(t *testing.T) {
 	}{
 		{
 			"纯对象",
-			`{"information_interpretation":[{"question":"q1","answer_hint":"a"},{"question":"q2"}],"guidance":[{"question":"写个简报"}]}`,
-			"information_interpretation", 2,
+			`{"intelligent_qa":[{"question":"q1","answer_hint":"a"},{"question":"q2"}],"doc_extraction":[{"question":"列出所有责任部门"}]}`,
+			"intelligent_qa", 2,
 		},
 		{
 			"带代码块",
-			"```json\n{\"guidance\":[{\"question\":\"写讲话提纲\"}]}\n```",
-			"guidance", 1,
+			"```json\n{\"info_writing\":[{\"question\":\"写讲话提纲\"}]}\n```",
+			"info_writing", 1,
 		},
 		{
 			"前后夹带文字",
