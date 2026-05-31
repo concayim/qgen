@@ -5,6 +5,17 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 约定：自此版本起，每次代码改动都提交并推送到 GitHub，并在此追加一条记录。
 
+## [v9] - 2026-05-31
+
+### Changed
+
+- 依据用户实际标注口径（`15个问题.xlsx`）将场景体系重构为 **5 个政务场景**，并纠正命名（此前「以稿写稿 / 信息撰写」含义对调）：
+  - `intelligent_qa` 智能问答、`extract_uploaded` 上传文档萃取分析、`extract_retrieval` 不上传文档萃取分析、`write_from_doc` 以稿写稿、`rewrite_excerpt` 信息撰写。
+- prompt 全面**公文化**：抬头与职务/会议全称/次数/期号/日期写全，使用政务规范术语，问句聚焦具体子议题。
+- 明确「上传文档萃取分析」（已上传，问句不点文件名）与「不上传文档萃取分析」（需检索，问句点全称）的区分。
+- 默认每篇 `2/2/2/2/2 = 10`；CLI 覆盖参数改为 `-n / -extract-up / -extract-kb / -write / -rewrite`。
+- 「上传文档」列对 `extract_uploaded` 标注来源文档名；`config.example.yaml`、单测同步更新。
+
 ## [v8] - 2026-05-31
 
 ### Changed

@@ -11,18 +11,18 @@ func TestParseBuckets(t *testing.T) {
 	}{
 		{
 			"纯对象",
-			`{"intelligent_qa":[{"question":"q1","answer_hint":"a"},{"question":"q2"}],"doc_extraction":[{"question":"列出所有责任部门"}]}`,
+			`{"intelligent_qa":[{"question":"q1","answer_hint":"a"},{"question":"q2"}],"extract_uploaded":[{"question":"阅读上传的文件，提了哪几点意见"}]}`,
 			"intelligent_qa", 2,
 		},
 		{
 			"带代码块",
-			"```json\n{\"info_writing\":[{\"question\":\"写讲话提纲\"}]}\n```",
-			"info_writing", 1,
+			"```json\n{\"write_from_doc\":[{\"question\":\"写一份传达稿\"}]}\n```",
+			"write_from_doc", 1,
 		},
 		{
 			"前后夹带文字",
-			"好的：\n{\"draft_from_doc\":[{\"question\":\"把xxx改成动态信息\"}]}\n完成",
-			"draft_from_doc", 1,
+			"好的：\n{\"rewrite_excerpt\":[{\"question\":\"把下面文字缩减为150字动态信息\"}]}\n完成",
+			"rewrite_excerpt", 1,
 		},
 	}
 	for _, c := range cases {

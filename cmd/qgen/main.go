@@ -25,9 +25,10 @@ func main() {
 		rootsFlag   stringList
 		outPath     string
 		qaN         int
-		draftN      int
-		extractN    int
-		writingN    int
+		extractUpN  int
+		extractKbN  int
+		writeN      int
+		rewriteN    int
 		concurrency int
 		maxDocs     int
 		dryRun      bool
@@ -37,9 +38,10 @@ func main() {
 	flag.Var(&rootsFlag, "root", "知识库根目录，可多次指定（覆盖配置）")
 	flag.StringVar(&outPath, "out", "", "输出 xlsx 路径（覆盖配置）")
 	flag.IntVar(&qaN, "n", -1, "覆盖 intelligent_qa（智能问答）的条数")
-	flag.IntVar(&draftN, "draft", -1, "覆盖 draft_from_doc（以稿写稿）的条数")
-	flag.IntVar(&extractN, "extract", -1, "覆盖 doc_extraction（上传文件萃取）的条数")
-	flag.IntVar(&writingN, "writing", -1, "覆盖 info_writing（信息撰写）的条数")
+	flag.IntVar(&extractUpN, "extract-up", -1, "覆盖 extract_uploaded（上传文档萃取分析）的条数")
+	flag.IntVar(&extractKbN, "extract-kb", -1, "覆盖 extract_retrieval（不上传文档萃取分析）的条数")
+	flag.IntVar(&writeN, "write", -1, "覆盖 write_from_doc（以稿写稿）的条数")
+	flag.IntVar(&rewriteN, "rewrite", -1, "覆盖 rewrite_excerpt（信息撰写）的条数")
 	flag.IntVar(&concurrency, "c", 0, "并发文档数（覆盖配置）")
 	flag.IntVar(&maxDocs, "max", -1, "最多处理的文档数，0/负数为不限制（覆盖配置）")
 	flag.BoolVar(&dryRun, "dry-run", false, "仅打印扫描到的知识库清单，不调用模型")
@@ -48,7 +50,7 @@ func main() {
 
 	em := &emitter{json: jsonMode}
 
-	cfg, err := loadConfig(configPath, rootsFlag, outPath, qaN, draftN, extractN, writingN, concurrency, maxDocs, dryRun)
+	cfg, err := loadConfig(configPath, rootsFlag, outPath, qaN, extractUpN, extractKbN, writeN, rewriteN, concurrency, maxDocs, dryRun)
 	if err != nil {
 		em.fatal("配置错误: " + err.Error())
 	}
@@ -182,7 +184,7 @@ func processDoc(ctx context.Context, generator *gen.Generator, cfg *config.Confi
 	return nil
 }
 
-func loadConfig(path string, roots stringList, out string, qaN, draftN, extractN, writingN, concurrency, maxDocs int, dryRun bool) (*config.Config, error) {
+func loadConfig(path string, roots stringList, out string, qaN, extractUpN, extractKbN, writeN, rewriteN, concurrency, maxDocs int, dryRun bool) (*config.Config, error) {
 	// dry-run 不需要模型 Key，使用 Default 跳过校验。
 	var cfg *config.Config
 	if dryRun {
@@ -209,14 +211,17 @@ func loadConfig(path string, roots stringList, out string, qaN, draftN, extractN
 	if qaN >= 0 {
 		setIntentCount(cfg, "intelligent_qa", "智能问答", qaN)
 	}
-	if draftN >= 0 {
-		setIntentCount(cfg, "draft_from_doc", "以稿写稿", draftN)
+	if extractUpN >= 0 {
+		setIntentCount(cfg, "extract_uploaded", "上传文档萃取分析", extractUpN)
 	}
-	if extractN >= 0 {
-		setIntentCount(cfg, "doc_extraction", "上传文件萃取", extractN)
+	if extractKbN >= 0 {
+		setIntentCount(cfg, "extract_retrieval", "不上传文档萃取分析", extractKbN)
 	}
-	if writingN >= 0 {
-		setIntentCount(cfg, "info_writing", "信息撰写", writingN)
+	if writeN >= 0 {
+		setIntentCount(cfg, "write_from_doc", "以稿写稿", writeN)
+	}
+	if rewriteN >= 0 {
+		setIntentCount(cfg, "rewrite_excerpt", "信息撰写", rewriteN)
 	}
 	if concurrency > 0 {
 		cfg.Gen.Concurrency = concurrency

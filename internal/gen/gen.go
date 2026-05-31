@@ -108,9 +108,9 @@ func (g *Generator) Generate(ctx context.Context, doc *kb.Document) ([]Question,
 			if q == "" {
 				continue
 			}
-			// 上传文件萃取：用户上传了该文档，"上传文档"列应标明来源文档；其余场景为知识库检索。
+			// 上传文档萃取分析：用户上传了该文档，"上传文档"列应标明来源文档；其余场景为知识库检索。
 			uploadDoc := g.cfg.Output.UploadDocLabel
-			if spec.Intent == "doc_extraction" {
+			if spec.Intent == "extract_uploaded" {
 				uploadDoc = doc.Title
 			}
 			out = append(out, Question{
