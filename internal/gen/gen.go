@@ -108,10 +108,15 @@ func (g *Generator) Generate(ctx context.Context, doc *kb.Document) ([]Question,
 			if q == "" {
 				continue
 			}
+			// 上传文件萃取：用户上传了该文档，"上传文档"列应标明来源文档；其余场景为知识库检索。
+			uploadDoc := g.cfg.Output.UploadDocLabel
+			if spec.Intent == "doc_extraction" {
+				uploadDoc = doc.Title
+			}
 			out = append(out, Question{
 				Scene:      spec.Scene,
 				Question:   q,
-				UploadDoc:  g.cfg.Output.UploadDocLabel,
+				UploadDoc:  uploadDoc,
 				SourceDoc:  doc.Title,
 				AnswerHint: strings.TrimSpace(r.AnswerHint),
 			})
